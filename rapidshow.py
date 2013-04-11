@@ -28,47 +28,38 @@ def pick_random_image(pathnames):
 			images.extend(get_image_from_filename(pathname))
 	return random.choice(images)
 
-class SlideLoader:
+class SlideLoader(threading.Thread):
+	daemon = True
+	fn = None
 	buffer = []
+	pathnames = []
 	bufferSize = 0
 	lock = threading.Lock()
-	loader = None
 
 	def __init__(self, pathnames, bufferSize):
-		self.loader = InfiniteLoopThread(lambda: self.load_random_slide(pathnames))
+		threading.Thread.__init__(self)
+		self.pathnames = pathnames
 		self.bufferSize = bufferSize
 
-	def start_loading(self):
-		self.loader.start()
+	def run(self):
+		while 1:
+			filename = pick_random_image(self.pathnames)
+			slide = pygame.image.load(open(filename, "rb")).convert()
+
+			self.lock.acquire()
+			self.buffer.append(slide)
+			if len(self.buffer) > self.bufferSize:
+				self.buffer.pop(0)
+			self.lock.release()
 
 	def get_buffer_amount(self):
 		return len(self.buffer) / self.bufferSize
-
-	def load_random_slide(self, pathnames):
-		filename = pick_random_image(pathnames)
-		slide = pygame.image.load(open(filename, "rb")).convert()
-
-		self.lock.acquire()
-		self.buffer.append(slide)
-		if len(self.buffer) > self.bufferSize:
-			self.buffer.pop(0)
-		self.lock.release()
 
 	def pick_random_slide(self):
 		self.lock.acquire()
 		slide = random.choice(self.buffer)
 		self.lock.release()
 		return slide
-
-class InfiniteLoopThread(threading.Thread):
-	daemon = True
-	fn = None
-	def __init__(self, fn):
-		threading.Thread.__init__(self)
-		self.fn = fn
-	def run(self):
-		while 1:
-			self.fn()
 
 def get_blit_position(surface, screen):
 	surfaceWidth = surface.get_width()
@@ -130,7 +121,7 @@ def main():
 	pygame.mouse.set_visible(0)
 
 	slideLoader = SlideLoader(options.dir, options.bufferSize)
-	slideLoader.start_loading()
+	slideLoader.start()
 
 	renderer = Renderer(screen, slideLoader, options.fps, options.minimumBufferFill, options.debug)
 	renderer.start()

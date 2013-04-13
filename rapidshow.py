@@ -1,6 +1,6 @@
 #/usr/bin/env python
 
-import os, argparse, glob, random, threading, pygame, math
+import os, argparse, glob, random, threading, math, pygame, psutil
 
 def is_image(filename):
 	filename = filename.lower()
@@ -55,11 +55,12 @@ def scale_surface_to_fill(surface, screen):
 class SlideLoader(threading.Thread):
 	daemon = True
 
-	def __init__(self, screen, pathnames, bufferSize):
+	def __init__(self, process, screen, pathnames, maxMemoryUsage):
 		threading.Thread.__init__(self)
+		self.process = process
 		self.screen = screen
 		self.pathnames = pathnames
-		self.bufferSize = bufferSize
+		self.maxMemoryUsage = maxMemoryUsage
 
 		self.buffer = []
 		self.lock = threading.Lock()
@@ -71,13 +72,15 @@ class SlideLoader(threading.Thread):
 			scaledSlide = scale_surface_to_fill(slide, self.screen)
 
 			self.lock.acquire()
+
 			self.buffer.append(scaledSlide)
-			if len(self.buffer) > self.bufferSize:
+			if self.process.get_memory_percent() > self.maxMemoryUsage:
 				self.buffer.pop(0)
+
 			self.lock.release()
 
 	def get_buffer_amount(self):
-		return len(self.buffer) / self.bufferSize
+		return self.process.get_memory_percent() / self.maxMemoryUsage
 
 	def pick_random_slide(self):
 		self.lock.acquire()
@@ -95,12 +98,13 @@ def get_centered_blit_position(surface, screen):
 class Renderer(threading.Thread):
 	daemon = True
 
-	def __init__(self, screen, slideLoader, fps, minimumBufferFill, debug):
+	def __init__(self, process, screen, slideLoader, fps, minimumBufferAmount, debug):
 		threading.Thread.__init__(self)
+		self.process = process
 		self.screen = screen
 		self.slideLoader = slideLoader
 		self.fps = fps
-		self.minimumBufferFill = minimumBufferFill
+		self.minimumBufferAmount = minimumBufferAmount
 		self.debug = debug
 
 	def run(self):
@@ -113,26 +117,36 @@ class Renderer(threading.Thread):
 			clock.tick(self.fps)
 			self.screen.fill(backgroundColor)
 			bufferAmount = self.slideLoader.get_buffer_amount()
-			if bufferAmount < self.minimumBufferFill:
-				text = 'Buffering... ({:.1%})'.format(bufferAmount / self.minimumBufferFill)
+			if bufferAmount < self.minimumBufferAmount:
+				text = 'Buffering... ({:.1%})'.format(bufferAmount / self.minimumBufferAmount)
 				textSurface = font.render(text, 1, textColor)
 				self.screen.blit(textSurface, get_centered_blit_position(textSurface, self.screen))
 			else:
 				slide = self.slideLoader.pick_random_slide()
 				self.screen.fill(backgroundColor)
 				self.screen.blit(slide, get_centered_blit_position(slide, self.screen))
+
 			if self.debug:
+				# fps
 				text = 'fps: {:.1f}'.format(clock.get_fps())
 				textSurface = font.render(text, 1, textColor)
 				self.screen.blit(textSurface, (10, 10))
+				# resource usage
+				text = 'memory: {:.1f}%'.format(self.process.get_memory_percent())
+				textSurface = font.render(text, 1, textColor)
+				self.screen.blit(textSurface, (10, 40))
+				# buffer stats
+				text = 'buffer: {:.1%}'.format(bufferAmount)
+				textSurface = font.render(text, 1, textColor)
+				self.screen.blit(textSurface, (10, 70))
 			pygame.display.flip()
 
 def main():
 	parser = argparse.ArgumentParser(description='Display slides. Fast.')
 	parser.add_argument('dir', help='Read images from DIR', nargs='+')
 	parser.add_argument('-f', '--fps', help='Sets the framerate for displaying new slides', metavar='##', type=int, default=60)
-	parser.add_argument('--buf', dest='bufferSize', help='Sets the size of the slide buffer', type=int, default=1000, metavar='##')
-	parser.add_argument('--fill', dest='minimumBufferFill', help='Sets the minimum buffer fill ratio before displaying begins', type=float, default=0.1, metavar='0.##')
+	parser.add_argument('--mem', dest='maxMemoryUsage', help='Sets the maximum memory usage, as a percentage of total memory', type=float, default=50, metavar='##')
+	parser.add_argument('--fill', dest='minimumBufferAmount', help='Sets the minimum buffer fill ratio before displaying begins', type=float, default=0.8, metavar='0.##')
 	parser.add_argument('--debug', action='store_true')
 	options = parser.parse_args()
 
@@ -141,10 +155,12 @@ def main():
 	if not options.debug:
 		pygame.mouse.set_visible(0)
 
-	slideLoader = SlideLoader(screen, options.dir, options.bufferSize)
+	process = psutil.Process(os.getpid())
+
+	slideLoader = SlideLoader(process, screen, options.dir, options.maxMemoryUsage)
 	slideLoader.start()
 
-	renderer = Renderer(screen, slideLoader, options.fps, options.minimumBufferFill, options.debug)
+	renderer = Renderer(process, screen, slideLoader, options.fps, options.minimumBufferAmount, options.debug)
 	renderer.start()
 
 	clock = pygame.time.Clock()

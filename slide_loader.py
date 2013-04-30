@@ -27,11 +27,12 @@ def _scale_surface_to_fill(surface, screen):
 class SlideLoader(threading.Thread):
 	daemon = True
 
-	def __init__(self, process, screen, imageFinder, maxMemoryUsage):
+	def __init__(self, process, screen, imageFinder, minimumBufferFilledLength, maxMemoryUsage):
 		threading.Thread.__init__(self)
 		self.process = process
 		self.screen = screen
 		self.imageFinder = imageFinder
+		self.minimumBufferFilledLength = minimumBufferFilledLength
 		self.maxMemoryUsage = maxMemoryUsage
 
 		self.buffer = []
@@ -52,7 +53,17 @@ class SlideLoader(threading.Thread):
 			self.lock.release()
 
 	def get_buffer_amount(self):
-		return self.process.get_memory_percent() / self.maxMemoryUsage
+		if self.process.get_memory_percent() >= self.maxMemoryUsage:
+			return 1
+
+		self.lock.acquire()
+		bufferLength = len(self.buffer)
+		self.lock.release()
+
+		if bufferLength >= self.minimumBufferFilledLength:
+			return 1
+
+		return bufferLength / self.minimumBufferFilledLength
 
 	def pick_random_slide(self):
 		self.lock.acquire()

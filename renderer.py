@@ -10,13 +10,12 @@ def _get_centered_blit_position(surface, screen):
 class Renderer(threading.Thread):
 	daemon = True
 
-	def __init__(self, process, screen, slideLoader, fps, minimumBufferAmount, debug):
+	def __init__(self, process, screen, slideLoader, fps, debug):
 		threading.Thread.__init__(self)
 		self.process = process
 		self.screen = screen
 		self.slideLoader = slideLoader
 		self.fps = fps
-		self.minimumBufferAmount = minimumBufferAmount
 		self.debug = debug
 
 	def run(self):
@@ -29,8 +28,8 @@ class Renderer(threading.Thread):
 			clock.tick(self.fps)
 			self.screen.fill(backgroundColor)
 			bufferAmount = self.slideLoader.get_buffer_amount()
-			if bufferAmount < self.minimumBufferAmount:
-				text = 'Buffering... ({:.1%})'.format(bufferAmount / self.minimumBufferAmount)
+			if bufferAmount < 1:
+				text = 'Buffering... ({:.1%})'.format(bufferAmount)
 				textSurface = font.render(text, 1, textColor)
 				self.screen.blit(textSurface, _get_centered_blit_position(textSurface, self.screen))
 			else:

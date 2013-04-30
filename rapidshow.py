@@ -9,8 +9,8 @@ from slide_loader import SlideLoader
 def main():
 	parser = argparse.ArgumentParser(description='Display slides. Fast.')
 	parser.add_argument('-f', '--fps', help='Sets the framerate for displaying new slides', metavar='##', type=int, default=60)
-	parser.add_argument('--mem', dest='maxMemoryUsage', help='Sets the maximum memory usage, as a percentage of total memory', type=float, default=50, metavar='##')
-	parser.add_argument('--fill', dest='minimumBufferAmount', help='Sets the minimum buffer fill ratio before displaying begins', type=float, default=0.8, metavar='0.##')
+	parser.add_argument('-m', '--mem', dest='maxMemoryUsage', help='Sets the maximum memory usage, as a percentage of total memory', type=float, default=50, metavar='##')
+	parser.add_argument('-b', '--buffer', dest='minimumBufferLength', help='Sets the minimum buffered image count before displaying begins', type=int, default=25, metavar='##')
 	parser.add_argument('--debug', action='store_true')
 
 	subparsers = parser.add_subparsers(title='Subcommands')
@@ -43,10 +43,10 @@ def start(options, imageFinder):
 
 	process = psutil.Process(os.getpid())
 
-	slideLoader = SlideLoader(process, screen, imageFinder, options.maxMemoryUsage)
+	slideLoader = SlideLoader(process, screen, imageFinder, options.minimumBufferLength, options.maxMemoryUsage)
 	slideLoader.start()
 
-	renderer = Renderer(process, screen, slideLoader, options.fps, options.minimumBufferAmount, options.debug)
+	renderer = Renderer(process, screen, slideLoader, options.fps, options.debug)
 	renderer.start()
 
 	clock = pygame.time.Clock()

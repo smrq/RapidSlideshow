@@ -1,4 +1,13 @@
-import pygame, threading
+import pygame, random, threading
+
+def _get_random_blit_position(surface, screen):
+	xMin = screen.get_width() - surface.get_width()
+	xMid = xMin / 2
+	xMax = 0
+	yMin = screen.get_height() - surface.get_height()
+	yMid = yMin / 2
+	yMax = 0
+	return (random.choice([xMin, xMid, xMax]), random.choice([yMin, yMid, yMax]))
 
 def _get_centered_blit_position(surface, screen):
 	surfaceWidth = surface.get_width()
@@ -35,7 +44,7 @@ class Renderer(threading.Thread):
 			else:
 				slide = self.slideLoader.pick_random_slide()
 				self.screen.fill(backgroundColor)
-				self.screen.blit(slide, _get_centered_blit_position(slide, self.screen))
+				self.screen.blit(slide, _get_random_blit_position(slide, self.screen))
 
 			if self.debug:
 				# fps

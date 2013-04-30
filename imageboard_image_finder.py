@@ -5,7 +5,7 @@ except ImportError:
 	from xml.etree import ElementTree
 
 def _get_post_list(tags, pageIndex):
-	params = { 'page': 'dapi', 's': 'post', 'q': 'index', 'tags': '+'.join(tags) }
+	params = { 'page': 'dapi', 's': 'post', 'q': 'index', 'tags': ' '.join(tags) }
 	req = requests.get('http://gelbooru.com/index.php', params=params)
 	req.raise_for_status()
 	return req.text
@@ -63,7 +63,7 @@ class ImageboardImageFinder():
 			self.fileUrls.append(url)
 		self.currentPageIndex = self.currentPageIndex + 1
 		if remainingPosts == 0 or len(urls) == 0:
-			self.allUrlsRetrieved = true
+			self.allUrlsRetrieved = True
 
 	def cache_next_image(self):
 		url = self.fileUrls.pop(0)

@@ -6,6 +6,10 @@ from imageboard_image_finder import ImageboardImageFinder
 from renderer import Renderer
 from slide_loader import SlideLoader
 
+def _load_tag_blacklist():
+	with open('tag_blacklist.txt', 'r') as f:
+		return ["-" + tag.strip() for tag in f.readlines()]
+
 def main():
 	parser = argparse.ArgumentParser(description='Display slides. Fast.')
 	parser.add_argument('-f', '--fps', help='Sets the framerate for displaying new slides', metavar='##', type=int, default=60)
@@ -32,7 +36,9 @@ def start_filesystem_mode(options):
 	start(options, imageFinder)
 
 def start_gelbooru_mode(options):
-	with ImageboardImageFinder(options.tags, options.hq) as imageFinder:
+	blacklist = _load_tag_blacklist()
+	tags = options.tags + blacklist
+	with ImageboardImageFinder(tags, options.hq) as imageFinder:
 		start(options, imageFinder)
 
 def start(options, imageFinder):

@@ -2,26 +2,46 @@
 
 import argparse, os, psutil, pygame
 from filesystem_image_finder import FilesystemImageFinder
+from imageboard_image_finder import ImageboardImageFinder
 from renderer import Renderer
 from slide_loader import SlideLoader
 
 def main():
 	parser = argparse.ArgumentParser(description='Display slides. Fast.')
-	parser.add_argument('dir', help='Read images from DIR', nargs='+')
 	parser.add_argument('-f', '--fps', help='Sets the framerate for displaying new slides', metavar='##', type=int, default=60)
 	parser.add_argument('--mem', dest='maxMemoryUsage', help='Sets the maximum memory usage, as a percentage of total memory', type=float, default=50, metavar='##')
 	parser.add_argument('--fill', dest='minimumBufferAmount', help='Sets the minimum buffer fill ratio before displaying begins', type=float, default=0.8, metavar='0.##')
 	parser.add_argument('--debug', action='store_true')
-	options = parser.parse_args()
 
+	subparsers = parser.add_subparsers(title='Subcommands')
+
+	parser_dir = subparsers.add_parser('dir')
+	parser_dir.add_argument('dirs', help='Directory to read images from (supports glob-style wildcards)', nargs='+', metavar='DIR')
+	parser_dir.set_defaults(func=start_filesystem_mode)
+
+	parser_gel = subparsers.add_parser('gel')
+	parser_gel.add_argument('tags', help='Tags to search for', nargs='+', metavar='TAG')
+	parser_gel.add_argument('--hq', help='Download higher-quality images', action='store_true')
+	parser_gel.set_defaults(func=start_gelbooru_mode)
+
+	options = parser.parse_args()
+	options.func(options)
+
+def start_filesystem_mode(options):
+	imageFinder = FilesystemImageFinder(options.dirs)
+	start(options, imageFinder)
+
+def start_gelbooru_mode(options):
+	with ImageboardImageFinder(options.tags, options.hq) as imageFinder:
+		start(options, imageFinder)
+
+def start(options, imageFinder):
 	pygame.init()
 	screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.HWSURFACE)
 	if not options.debug:
 		pygame.mouse.set_visible(0)
 
 	process = psutil.Process(os.getpid())
-
-	imageFinder = FilesystemImageFinder(options.dir)
 
 	slideLoader = SlideLoader(process, screen, imageFinder, options.maxMemoryUsage)
 	slideLoader.start()

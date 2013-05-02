@@ -17,8 +17,6 @@ def _get_centered_blit_position(surface, screen):
 	return ((screenWidth - surfaceWidth)/2, (screenHeight - surfaceHeight)/2)
 
 class Renderer(threading.Thread):
-	daemon = True
-
 	def __init__(self, process, screen, slideLoader, fps, debug):
 		threading.Thread.__init__(self)
 		self.process = process
@@ -26,6 +24,7 @@ class Renderer(threading.Thread):
 		self.slideLoader = slideLoader
 		self.fps = fps
 		self.debug = debug
+		self.running = False
 
 	def run(self):
 		font = pygame.font.Font(None, 48)
@@ -33,7 +32,8 @@ class Renderer(threading.Thread):
 		backgroundColor = (0, 0, 0)
 		textColor = (30, 30, 50)
 
-		while 1:
+		self.running = True
+		while self.running:
 			clock.tick(self.fps)
 			self.screen.fill(backgroundColor)
 			bufferAmount = self.slideLoader.get_buffer_amount()
@@ -60,3 +60,6 @@ class Renderer(threading.Thread):
 				textSurface = font.render(text, 1, textColor)
 				self.screen.blit(textSurface, (10, 70))
 			pygame.display.flip()
+
+	def stop(self):
+		self.running = False

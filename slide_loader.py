@@ -25,8 +25,6 @@ def _scale_surface_to_fill(surface, screen):
 		return _scale_surface_to_fit_width(surface, screen)
 
 class SlideLoader(threading.Thread):
-	daemon = True
-
 	def __init__(self, process, screen, imageFinder, minimumBufferFilledLength, maxMemoryUsage):
 		threading.Thread.__init__(self)
 		self.process = process
@@ -34,31 +32,33 @@ class SlideLoader(threading.Thread):
 		self.imageFinder = imageFinder
 		self.minimumBufferFilledLength = minimumBufferFilledLength
 		self.maxMemoryUsage = maxMemoryUsage
-
+		self.running = False
 		self.buffer = []
 		self.lock = threading.Lock()
 
 	def run(self):
-		while 1:
+		self.running = True
+		while self.running:
 			filename = self.imageFinder.find_image()
-			slide = pygame.image.load(open(filename, "rb")).convert()
+			with open(filename, "rb") as f:
+				slide = pygame.image.load(f).convert()
+
 			scaledSlide = _scale_surface_to_fill(slide, self.screen)
 
-			self.lock.acquire()
+			with self.lock:
+				self.buffer.append(scaledSlide)
+				if self.process.get_memory_percent() > self.maxMemoryUsage:
+					self.buffer.pop(0)
 
-			self.buffer.append(scaledSlide)
-			if self.process.get_memory_percent() > self.maxMemoryUsage:
-				self.buffer.pop(0)
-
-			self.lock.release()
+	def stop(self):
+		self.running = False
 
 	def get_buffer_amount(self):
 		if self.process.get_memory_percent() >= self.maxMemoryUsage:
 			return 1
 
-		self.lock.acquire()
-		bufferLength = len(self.buffer)
-		self.lock.release()
+		with self.lock:
+			bufferLength = len(self.buffer)
 
 		if bufferLength >= self.minimumBufferFilledLength:
 			return 1
@@ -66,7 +66,5 @@ class SlideLoader(threading.Thread):
 		return bufferLength / self.minimumBufferFilledLength
 
 	def pick_random_slide(self):
-		self.lock.acquire()
-		slide = random.choice(self.buffer)
-		self.lock.release()
-		return slide
+		with self.lock:
+			return random.choice(self.buffer)

@@ -56,12 +56,18 @@ def start(options, imageFinder):
 	renderer.start()
 
 	clock = pygame.time.Clock()
-	while 1:
+	quit = False
+	while not quit:
 		clock.tick(5)
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
-				return
+				quit = True
 			elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-				return
+				quit = True
+
+	slideLoader.stop()
+	renderer.stop()
+	slideLoader.join()
+	renderer.join()
 
 if __name__ == '__main__': main()
